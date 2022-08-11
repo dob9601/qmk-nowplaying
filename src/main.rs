@@ -5,17 +5,42 @@ use std::fs::File;
 use std::io::Write;
 use std::time::Duration;
 
-use hidapi::{HidApi};
-use image_convert::{ImageResource, to_png, PNGConfig};
+use hidapi::HidApi;
+use magick_rust::MagickWand;
 use mpris::{Metadata, PlayerFinder};
 use qmk_oled_api::screen::OledScreen32x128;
 
 #[derive(Debug)]
 struct HIDSongMetadata {
-    title: String,
-    album: String,
-    artist: String,
-    album_art_url: Option<String>
+    pub title: String,
+    pub album: String,
+    pub artist: String,
+    pub album_art_url: Option<String>
+}
+
+struct ScrollingText {
+    text: String,
+    step: usize,
+    window_size: usize,
+}
+
+impl ScrollingText {
+    pub fn new(text: &str, window_size: usize) -> Self {
+        ScrollingText {
+            text: text.to_owned(),
+            step: 0,
+            window_size,
+        }
+    }
+
+    pub fn step(&mut self) -> String {
+        let output: String = self.text.chars().skip(self.step).take(self.window_size).collect();
+        self.step += 1;
+        if self.step > self.text.len() - 1 {
+            self.step = 0;
+        }
+        output
+    }
 }
 
 impl HIDSongMetadata {
@@ -54,25 +79,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     let client = reqwest::blocking::Client::builder().user_agent("QMK Fancy Keyboard").build()?;
 
     let image_buffer_dir = tempfile::tempdir()?;
-    let image_buffer_path = image_buffer_dir.path().join("albumart");
-    let image_buffer_converted_path = image_buffer_dir.path().join("albumart_converted.png");
-    println!("{image_buffer_path:#?}");
-    let mut image_buffer = File::create(&image_buffer_path)?;
+    let image_buffer_path = image_buffer_dir.path().join("albumart.png");
+
     loop {
+        let wand = MagickWand::new();
+        let mut image_buffer = File::create(&image_buffer_path)?;
 
         let metadata = get_current_metadata().unwrap();
-        println!("{metadata:#?}");
         let image_url = metadata.unwrap().album_art_url.unwrap().replace("https://open.spotify.com/", "https://i.scdn.co/");
-        println!("{image_url}");
         let image_bytes = client.get(image_url).send()?.bytes()?;
-        image_buffer.write_all(&image_bytes)?;
-
-        let original = ImageResource::from_path(&image_buffer_path);
-        let mut converted = ImageResource::from_path(&image_buffer_converted_path);
-        to_png(&mut converted, &original, &PNGConfig::new())?;
+        wand.read_image_blob(image_bytes)?;
+        image_buffer.write_all(&wand.write_image_blob("png")?)?;
 
         screen.clear();
-        screen.draw_image(&image_buffer_converted_path, 0, 96, true);
+        screen.draw_image(&image_buffer_path, 0, 95, true);
 
         screen.send(&device)?;
         image_buffer.set_len(0)?;

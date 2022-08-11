@@ -12,4 +12,4 @@ mpris = "2.0.0-rc2"
 serde = { version = "1.0.141", features = ["derive"] }
 hidapi = { version = "1.4.1", default-features = false, features = ["linux-static-hidraw"]}
 reqwest = { version = "0.11.11", features = ["blocking"] }
-image-convert = "0.12.0"
+magick_rust = "0.16.0"
