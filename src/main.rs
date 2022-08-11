@@ -81,18 +81,28 @@ fn main() -> Result<(), Box<dyn Error>> {
     let image_buffer_dir = tempfile::tempdir()?;
     let image_buffer_path = image_buffer_dir.path().join("albumart.png");
 
+    //let mut title_scroller = ScrollingText::new(text, window_size);
+    //let mut album_scroller = ScrollingText::new(text, window_size);
+    //let mut artist_scroller = ScrollingText::new(text, window_size);
+
+    //let metadata;
+
     loop {
         let wand = MagickWand::new();
         let mut image_buffer = File::create(&image_buffer_path)?;
 
-        let metadata = get_current_metadata().unwrap();
-        let image_url = metadata.unwrap().album_art_url.unwrap().replace("https://open.spotify.com/", "https://i.scdn.co/");
+        let metadata = get_current_metadata().unwrap().unwrap();
+        let image_url = metadata.album_art_url.unwrap().replace("https://open.spotify.com/", "https://i.scdn.co/");
         let image_bytes = client.get(image_url).send()?.bytes()?;
         wand.read_image_blob(image_bytes)?;
         image_buffer.write_all(&wand.write_image_blob("png")?)?;
 
         screen.clear();
+
         screen.draw_image(&image_buffer_path, 0, 95, true);
+        screen.draw_text(&metadata.title, 0, 80, 12.0, None);
+        screen.draw_text(&metadata.album, 0, 60, 12.0, None);
+        screen.draw_text(&metadata.artist, 0, 40, 12.0, None);
 
         screen.send(&device)?;
         image_buffer.set_len(0)?;
