@@ -1,5 +1,9 @@
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](https://makeapullrequest.com)
 # QMK - Now Playing 🎵
-This repo contains terrible code that produces cool functionality on QMK keyboards with OLED screens. It serves as a demonstration of the [qmk-oled-api repository](https://github.com/dob9601/qmk-oled-api)
+
+This project allows for information about the currently playing song to be shown on a QMK keyboard's OLED display. It has only been tested on Linux.
+
+The code in this repo is currently in a pretty hacky state as it serves as a demonstration of the capabilities of the [qmk-oled-api repository](https://github.com/dob9601/qmk-oled-api).
 
 ## Installation
 
