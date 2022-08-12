@@ -10,37 +10,12 @@ use magick_rust::MagickWand;
 use mpris::{Metadata, PlayerFinder};
 use qmk_oled_api::screen::OledScreen32x128;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 struct HIDSongMetadata {
     pub title: String,
     pub album: String,
     pub artist: String,
-    pub album_art_url: Option<String>
-}
-
-struct ScrollingText {
-    text: String,
-    step: usize,
-    window_size: usize,
-}
-
-impl ScrollingText {
-    pub fn new(text: &str, window_size: usize) -> Self {
-        ScrollingText {
-            text: text.to_owned(),
-            step: 0,
-            window_size,
-        }
-    }
-
-    pub fn step(&mut self) -> String {
-        let output: String = self.text.chars().skip(self.step).take(self.window_size).collect();
-        self.step += 1;
-        if self.step > self.text.len() - 1 {
-            self.step = 0;
-        }
-        output
-    }
+    pub album_art_url: Option<String>,
 }
 
 impl HIDSongMetadata {
@@ -63,7 +38,7 @@ impl From<mpris::Metadata> for HIDSongMetadata {
                 .album_artists()
                 .map(|inner| inner.join(","))
                 .unwrap_or_else(|| "No Artists".to_string()),
-            metadata.art_url()
+            metadata.art_url(),
         )
     }
 }
@@ -76,37 +51,72 @@ fn main() -> Result<(), Box<dyn Error>> {
     let device = hid_api.open_path(&device_path).unwrap();
     let mut screen = OledScreen32x128::new();
 
-    let client = reqwest::blocking::Client::builder().user_agent("QMK Fancy Keyboard").build()?;
+    let client = reqwest::blocking::Client::builder()
+        .build()?;
 
     let image_buffer_dir = tempfile::tempdir()?;
     let image_buffer_path = image_buffer_dir.path().join("albumart.png");
 
-    //let mut title_scroller = ScrollingText::new(text, window_size);
-    //let mut album_scroller = ScrollingText::new(text, window_size);
-    //let mut artist_scroller = ScrollingText::new(text, window_size);
+    let mut tick = 0;
 
-    //let metadata;
+    let mut last_metadata: Option<HIDSongMetadata> = None;
 
     loop {
+        let metadata = get_current_metadata().unwrap().unwrap();
+
+        if tick == 50 || last_metadata != Some(metadata.clone()) {
+            tick = 0
+        }
+        last_metadata = Some(metadata.clone());
+
         let wand = MagickWand::new();
         let mut image_buffer = File::create(&image_buffer_path)?;
 
-        let metadata = get_current_metadata().unwrap().unwrap();
-        let image_url = metadata.album_art_url.unwrap().replace("https://open.spotify.com/", "https://i.scdn.co/");
+        let image_url = metadata
+            .album_art_url
+            .unwrap()
+            .replace("https://open.spotify.com/", "https://i.scdn.co/"); // Spotify haven't fixed their Linux client :(
         let image_bytes = client.get(image_url).send()?.bytes()?;
         wand.read_image_blob(image_bytes)?;
         image_buffer.write_all(&wand.write_image_blob("png")?)?;
 
         screen.clear();
 
+        let title = metadata.title + "    ";
+        let title_min_index = tick % (title.len() - 4);
+        let album = metadata.album + "    ";
+        let album_min_index = tick % (album.len() - 4);
+        let artist = metadata.artist + "    ";
+        let artist_min_index = tick % (artist.len() - 4);
+
         screen.draw_image(&image_buffer_path, 0, 95, true);
-        screen.draw_text(&metadata.title, 0, 80, 12.0, None);
-        screen.draw_text(&metadata.album, 0, 60, 12.0, None);
-        screen.draw_text(&metadata.artist, 0, 40, 12.0, None);
+        screen.draw_text(
+            &title[title_min_index..title_min_index + 4],
+            0,
+            80,
+            12.0,
+            None,
+        );
+        screen.draw_text(
+            &album[album_min_index..album_min_index + 4],
+            0,
+            60,
+            12.0,
+            None,
+        );
+        screen.draw_text(
+            &artist[artist_min_index..artist_min_index + 4],
+            0,
+            40,
+            12.0,
+            None,
+        );
+        tick += 1;
 
         screen.send(&device)?;
         image_buffer.set_len(0)?;
-        std::thread::sleep(Duration::from_millis(1000));
+
+        std::thread::sleep(Duration::from_millis(200));
     }
 }
 
