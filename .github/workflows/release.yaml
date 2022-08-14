@@ -12,6 +12,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Install libdbus
+        run: |
+          apt update
+          apt install -y libdbus-1-dev pkg-config libudev-dev
+
       - name: Build and release
         run: cargo build --release
 
