@@ -27,24 +27,50 @@ impl HIDSongMetadata {
     }
 }
 
+impl Default for HIDSongMetadata {
+    fn default() -> Self {
+        Self {
+            title: "No Title".to_string(),
+            album: "No Album".to_string(),
+            artist: "No Artist".to_string(),
+            album_art_url: None,
+        }
+    }
+}
+
 impl From<mpris::Metadata> for HIDSongMetadata {
     fn from(metadata: mpris::Metadata) -> Self {
+        let mut title = metadata.title().unwrap_or_default();
+        if title.is_empty() {
+            title = "No Title"
+        }
+
+        let mut album_name = metadata.album_name().unwrap_or_default();
+        if album_name.is_empty() {
+            album_name = "No Album"
+        }
+
+        let mut album_artists = metadata.album_artists().unwrap_or_default().join(", ");
+        if album_artists.is_empty() {
+            album_artists = "No Artists".to_string()
+        }
+
         HIDSongMetadata::new(
-            metadata.title().unwrap_or("No Title").to_string(),
-            metadata.album_name().unwrap_or("No Album").to_string(),
-            metadata
-                .album_artists()
-                .map(|inner| inner.join(","))
-                .unwrap_or_else(|| "No Artists".to_string()),
+            title.to_string(),
+            album_name.to_string(),
+            album_artists,
             metadata.art_url(),
         )
     }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let vendor_id: u16 = u16::from_str_radix(env::var("VENDOR_ID").unwrap().trim_start_matches("0x"), 16).unwrap();
-    let product_id: u16 = u16::from_str_radix(env::var("PRODUCT_ID").unwrap().trim_start_matches("0x"), 16).unwrap();
-    let usage_page: u16 = u16::from_str_radix(env::var("USAGE_PAGE").unwrap().trim_start_matches("0x"), 16).unwrap();
+    let vendor_id: u16 =
+        u16::from_str_radix(env::var("VENDOR_ID").unwrap().trim_start_matches("0x"), 16).unwrap();
+    let product_id: u16 =
+        u16::from_str_radix(env::var("PRODUCT_ID").unwrap().trim_start_matches("0x"), 16).unwrap();
+    let usage_page: u16 =
+        u16::from_str_radix(env::var("USAGE_PAGE").unwrap().trim_start_matches("0x"), 16).unwrap();
 
     let mut screen = OledScreen32x128::from_id(vendor_id, product_id, usage_page)?;
 
@@ -58,7 +84,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut last_metadata: Option<HIDSongMetadata> = None;
 
     loop {
-        let metadata = get_current_metadata().unwrap().unwrap();
+        let metadata = get_current_metadata()
+            .unwrap_or_else(|_| Some(HIDSongMetadata::default()))
+            .unwrap_or_default();
 
         if tick == 50 || last_metadata != Some(metadata.clone()) {
             tick = 0
@@ -68,15 +96,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         let wand = MagickWand::new();
         let mut image_buffer = File::create(&image_buffer_path)?;
 
-        let image_url = metadata
-            .album_art_url
-            .unwrap()
-            .replace("https://open.spotify.com/", "https://i.scdn.co/"); // Spotify haven't fixed their Linux client :(
-        let image_bytes = client.get(image_url).send()?.bytes()?;
-        wand.read_image_blob(image_bytes)?;
-        image_buffer.write_all(&wand.write_image_blob("png")?)?;
+        let image_url = metadata.album_art_url;
 
-        screen.clear();
+        if let Some(image_url) = image_url {
+            // Spotify haven't fixed their Linux client :(
+            let image_url = image_url.replace("https://open.spotify.com/", "https://i.scdn.co/");
+
+            let image_bytes = client.get(image_url).send()?.bytes()?;
+            wand.read_image_blob(image_bytes)?;
+            image_buffer.write_all(&wand.write_image_blob("png")?)?;
+            screen.draw_image(&image_buffer_path, 0, 95, true);
+        } else {
+            screen.draw_text("?", 10, 100, 30.0, None);
+        }
 
         let title = metadata.title + "    ";
         let title_min_index = tick % (title.len() - 4);
@@ -85,7 +117,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         let artist = metadata.artist + "    ";
         let artist_min_index = tick % (artist.len() - 4);
 
-        screen.draw_image(&image_buffer_path, 0, 95, true);
         screen.draw_text(
             &title[title_min_index..title_min_index + 4],
             0,
@@ -112,6 +143,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         screen.send()?;
         image_buffer.set_len(0)?;
 
+        screen.clear();
         std::thread::sleep(Duration::from_millis(200));
     }
 }
