@@ -19,10 +19,10 @@ jobs:
 
       - name: Build imagemagick
         run: |
-          git clone https://github.com/ImageMagick/ImageMagick.git ImageMagick-7.1.0
+          git clone https://github.com/ImageMagick/ImageMagick.git ImageMagick-7.1.0 \
            && ./configure --with-magick-plus-plus=no --with-perl=no \
            && make \
-           && make install \
+           && sudo make install \
 
       - name: Build and release
         run: cargo build --release
