@@ -1,5 +1,8 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](https://makeapullrequest.com)
 # QMK - Now Playing 🎵
+Show information and album art for the currently playing song on the OLED screen of your QMK keyboard
+![IMG_20220814_150825-01](https://user-images.githubusercontent.com/24723950/184541002-cbaf09e5-dd6f-4e44-b6d8-9febc8c89cbb.jpeg)
+
 
 This project allows for information about the currently playing song to be shown on a QMK keyboard's OLED display. It has only been tested on Linux.
 
