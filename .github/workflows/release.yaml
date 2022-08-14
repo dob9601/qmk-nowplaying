@@ -20,6 +20,7 @@ jobs:
       - name: Build imagemagick
         run: |
           git clone https://github.com/ImageMagick/ImageMagick.git ImageMagick-7.1.0 \
+           && cd ImageMagick-7.1.0
            && ./configure --with-magick-plus-plus=no --with-perl=no \
            && make \
            && sudo make install \
