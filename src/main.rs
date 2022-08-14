@@ -1,11 +1,9 @@
 use std::env;
 use std::error::Error;
-use std::ffi::CString;
 use std::fs::File;
 use std::io::Write;
 use std::time::Duration;
 
-use hidapi::HidApi;
 use magick_rust::MagickWand;
 use mpris::{Metadata, PlayerFinder};
 use qmk_oled_api::screen::OledScreen32x128;
@@ -44,15 +42,13 @@ impl From<mpris::Metadata> for HIDSongMetadata {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let device_path =
-        CString::new(env::var("DEVICE_PATH").expect("Missing required env var")).unwrap();
+    let vendor_id: u16 = u16::from_str_radix(env::var("VENDOR_ID").unwrap().trim_start_matches("0x"), 16).unwrap();
+    let product_id: u16 = u16::from_str_radix(env::var("PRODUCT_ID").unwrap().trim_start_matches("0x"), 16).unwrap();
+    let usage_page: u16 = u16::from_str_radix(env::var("USAGE_PAGE").unwrap().trim_start_matches("0x"), 16).unwrap();
 
-    let hid_api = HidApi::new().unwrap();
-    let device = hid_api.open_path(&device_path).unwrap();
-    let mut screen = OledScreen32x128::new();
+    let mut screen = OledScreen32x128::from_id(vendor_id, product_id, usage_page)?;
 
-    let client = reqwest::blocking::Client::builder()
-        .build()?;
+    let client = reqwest::blocking::Client::builder().build()?;
 
     let image_buffer_dir = tempfile::tempdir()?;
     let image_buffer_path = image_buffer_dir.path().join("albumart.png");
@@ -113,7 +109,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         );
         tick += 1;
 
-        screen.send(&device)?;
+        screen.send()?;
         image_buffer.set_len(0)?;
 
         std::thread::sleep(Duration::from_millis(200));
