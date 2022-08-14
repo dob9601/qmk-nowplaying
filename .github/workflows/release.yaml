@@ -12,10 +12,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Install libdbus
+      - name: Install pre-requisites
         run: |
           sudo apt update
-          sudo apt install -y libdbus-1-dev pkg-config libudev-dev
+          sudo apt install -y libdbus-1-dev pkg-config libudev-dev libmagickwand-dev
 
       - name: Build and release
         run: cargo build --release
