@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-qmk-oled-api = { path = "../qmk-oled-api/" }
+qmk-oled-api = "0.1.0-alpha.2"
 tempfile = "3.3.0"
 mpris = "2.0.0-rc2"
 serde = { version = "1.0.141", features = ["derive"] }
